@@ -15,11 +15,12 @@ class Knob:
     button_toggled = False
     button_mode_count = 0
     
-    def __init__(self, name, pin_sw, pin_dt, pin_clk):
+    def __init__(self, name, double_rotate_fix, pin_sw, pin_dt, pin_clk):
         pin_dt.direction = digitalio.Direction.INPUT
         pin_clk.direction = digitalio.Direction.INPUT
         
         self.name = name
+        self.double_rotate_fix = double_rotate_fix
         self.pin_sw = pin_sw
         self.pin_dt = pin_dt
         self.pin_clk = pin_clk
@@ -29,9 +30,17 @@ class Knob:
 knobs = [
     Knob(
         "Left",
+        False,
         analogio.AnalogIn(board.GP26), # sw
-        digitalio.DigitalInOut(board.GP28) , # dt
+        digitalio.DigitalInOut(board.GP14) , # dt
         digitalio.DigitalInOut(board.GP27) # clk
+    ),
+    Knob(
+        "Right",
+        True,
+        analogio.AnalogIn(board.GP29), # sw
+        digitalio.DigitalInOut(board.GP8) , # dt
+        digitalio.DigitalInOut(board.GP28) # clk
     )
 ]
 
@@ -49,6 +58,12 @@ async def on_rotate(knob, val):
     
     if not knob.button_toggled: # debounce fix
         knob.button_toggle_time = 0
+        
+    if knob.double_rotate_fix: # double rotate fix
+        if not hasattr(knob, "double_rotate_state") or knob.double_rotate_state != direction:
+            knob.double_rotate_state = direction
+            return
+        knob.double_rotate_state = None
     
     print(f"{knob.name} - Rotate: {direction}")
     
@@ -58,7 +73,7 @@ async def on_rotate(knob, val):
         USB_CONTROL.send(ConsumerControlCode.VOLUME_INCREMENT)
     
 async def on_button_press(knob):
-    print("Button: Press")
+    print(f"{knob.name} - Button: Press")
     USB_CONTROL.send(ConsumerControlCode.PLAY_PAUSE)
 
 async def on_button_release(knob):
